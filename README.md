@@ -55,7 +55,7 @@ url    = "http://10.253.0.235"  # 寝室公寓；主楼有线是 http://10.253.0
 ac_id  = 3                      # 寝室公寓 3；主楼有线 1
 
 [monitor]
-test_ip    = "114.114.114.114"  # 用这个 IP 判断有没有联网
+test_ip    = "223.5.5.5"        # 用这个 IP 判断有没有联网（要选本网络 ping 得通的）
 delay      = 16                 # 掉线检测间隔(秒)
 max_failed = 3                  # 连续失败几次算断网
 ```
@@ -89,7 +89,7 @@ python always_online.py
 | `account.domain` | 网络提供商：电信 `@dx`、移动 `@cmcc`、校园网 `@dx-uestc` |
 | `portal.url` | 认证页地址：寝室公寓 `http://10.253.0.235`，主楼有线校园网 `http://10.253.0.237` |
 | `portal.ac_id` | 认证页地址里的 `ac_id` 参数：寝室公寓 `3`，主楼有线 `1` |
-| `monitor.test_ip` | 用来判断当前是否联网的 IP，能 ping 通就算在线 |
+| `monitor.test_ip` | 用来判断当前是否联网的 IP，能 ping 通就算在线。默认 `223.5.5.5`，详见下方说明 |
 | `monitor.delay` | 掉线检测间隔（秒） |
 | `monitor.max_failed` | 连续 ping 失败多少次才认为断网 |
 
@@ -127,6 +127,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1
 所以**不用保持登录**，也**不用把 Windows 密码存进任务计划程序**。校园网账号密码仍然
 只写在 `config.toml` 里（已被 gitignore，不会进仓库）。
 
+这种模式下没有可见的控制台窗口，而 `LoginManager` 的登录结果是 `print` 出来的（不写日志文件），
+所以脚本会把它的输出重定向到 `logs/always_online.console.log`，想看登录结果就翻这个文件。
+
 看状态 / 删除：
 
 ```powershell
@@ -136,6 +139,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1 -Statu
 # 删除这个计划任务
 powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1 -Remove
 ```
+
+> 任务是以 SYSTEM 身份跑的，普通权限的终端读不到它的状态（`Get-ScheduledTask`
+> 会报「拒绝访问」，不是「没注册」）。要看状态请用管理员身份的 PowerShell。
+> 想快速判断它有没有在跑，可以看有没有 `python.exe` 以 SYSTEM 身份运行，
+> 或者看 `logs/` 里最新日志的时间戳。
 
 **方式二：登录后自启**
 
@@ -213,6 +221,18 @@ python 不在 PATH 里，见上面「双击运行」一节。bat 末尾的 `paus
 
 **登录成功但立刻又掉线**
 `domain` 填错了。电信 `@dx`、移动 `@cmcc`、校园网 `@dx-uestc`，换一个试试。
+
+**日志里一直刷 `offline.`，但其实能正常上网**
+`monitor.test_ip` 那个 IP 在你所在网络 ping 不通，守候进程就误判成断线，会每隔几秒
+重试一次登录（`logs/*.log` 里会一直刷 `offline.`）。有的校园网会拦掉部分公共 DNS：
+实测 UESTC 网络里 `114.114.114.114` 不通，而 `223.5.5.5`、`119.29.29.29`、
+`114.114.115.115` 都通。换一个能通的 IP，重启守候进程后生效。
+
+**怎么确认到底登没登上**
+`LoginManager` 的登录结果是 `print` 出来的，不写日志文件。三个办法：双击
+`autoConnectNetwork.bat` 手动登一次（窗口里会显示 `The loggin result is: ok`）；
+看开机任务模式下的 `logs/always_online.console.log`；或者直接看 `logs/` 里
+是否还在刷 `offline.`，不刷了说明在线。
 
 ------------------------------
 

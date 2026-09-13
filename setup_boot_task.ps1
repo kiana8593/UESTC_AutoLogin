@@ -40,8 +40,20 @@ function Test-IsAdmin {
 }
 
 function Show-TaskStatus {
-    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if (-not $task) {
+    try {
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
+    }
+    catch {
+        # 0x80041003 = WBEM_E_ACCESS_DENIED. The task runs as SYSTEM, so a
+        # non-elevated shell cannot read it back - that is NOT "not registered",
+        # and reporting it as such would be a false negative.
+        if ($_.Exception.Message -match '0x80041003|Access is denied|denied') {
+            Write-Host "Cannot read '$taskName' from a non-elevated shell (access denied)."
+            Write-Host 'The task runs as SYSTEM; run this script from an elevated PowerShell to'
+            Write-Host 'see its status. Hint: check that a python.exe is running as SYSTEM, or'
+            Write-Host 'look at the timestamp of logs\always_online.console.log.'
+            return
+        }
         Write-Host "Not registered: $taskName"
         return
     }
@@ -90,8 +102,19 @@ if (Test-Path -LiteralPath $startupLnk) {
     Write-Host ''
 }
 
+$consoleLog = Join-Path $repoDir 'logs\always_online.console.log'
+
+# Re-running the installer should also pick up config.toml changes, so stop the
+# instance that is currently running before registering the fresh definition.
+$existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if ($existing -and $existing.State -eq 'Running') {
+    Write-Host 'Stopping the running monitor instance...'
+    Stop-ScheduledTask -TaskName $taskName
+    Start-Sleep -Seconds 2
+}
+
 $action = New-ScheduledTaskAction -Execute (Join-Path $env:SystemRoot 'System32\cmd.exe') `
-    -Argument ('/c "{0}"' -f $launcher) `
+    -Argument ('/c ""{0}" > "{1}" 2>&1"' -f $launcher, $consoleLog) `
     -WorkingDirectory $repoDir
 
 # 30 s after boot so the network stack is ready; the monitor retries anyway.
@@ -118,6 +141,7 @@ Write-Host "Registered scheduled task: $taskName"
 Write-Host "  launcher : $launcher"
 Write-Host '  identity : SYSTEM (starts at boot, no interactive logon needed)'
 Write-Host "  logs     : $(Join-Path $repoDir 'logs')"
+Write-Host "  console  : $consoleLog"
 
 if (-not $NoStart) {
     Start-ScheduledTask -TaskName $taskName
