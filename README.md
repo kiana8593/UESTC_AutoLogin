@@ -46,8 +46,8 @@ cp config.example.toml config.toml
 
 ```toml
 [account]
-username = "202912272625"   # 学号
-password = "your_password"  # 教务处密码
+username = "你的学号"        # 学号
+password = "你的密码"        # 教务处密码
 domain   = "@dx"            # 电信 @dx / 移动 @cmcc / 校园网 @dx-uestc
 
 [portal]

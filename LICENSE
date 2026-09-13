@@ -1,6 +1,8 @@
 MIT License
 
-Copyright (c) 2026 叱咤深海鱼鱼猫
+Copyright (c) 2026 叱咤深海鱼鱼猫（本仓库的整理、修改与维护）
+Copyright (c) 2026 yuzhoujun（UESTC 适配与 PowerShell 移植）
+Copyright (c) 2020 coffeehat（原始 srun 登录实现）
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
