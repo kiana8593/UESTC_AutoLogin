@@ -30,8 +30,35 @@ STARTUP_FILE_NAME = 'UESTC AutoLogin.cmd'
 IS_WINDOWS = os.name == 'nt'
 IS_FROZEN = bool(getattr(sys, 'frozen', False))
 
-
 # ------------------------------------------------------------------ 小工具
+
+def fix_console_encoding():
+    """
+    让 print 中文永远不会因为编码问题把程序干掉。
+
+    中文 Windows 控制台是 GBK（能编中文）；但把输出重定向给管道 / 文件时，
+    Python 用的是系统 ANSI 码页 —— 英文系统上是 cp1252，编不出中文，一句
+    print('中文') 就抛 UnicodeEncodeError 直接退出（CI 上就踩了这个坑：
+    --help 里全是中文，一跑就崩）。所以：
+
+    * 输出到控制台：保留原编码，只把 errors 改成 replace；
+    * 输出重定向到文件 / 管道：直接换成 utf-8。
+    """
+    for name in ('stdout', 'stderr'):
+        stream = getattr(sys, name, None)
+        if stream is None or not hasattr(stream, 'reconfigure'):
+            continue
+        try:
+            if stream.isatty():
+                stream.reconfigure(errors='replace')
+            else:
+                stream.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+
+
+fix_console_encoding()
+
 
 def decode(raw):
     """计划任务等系统命令的输出是本地编码（中文系统是 GBK），统一解码。"""

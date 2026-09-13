@@ -47,10 +47,18 @@ jobs:
 
       - name: 冒烟测试（--version / --help 能跑起来）
         shell: bash
+        env:
+          # CI 上 stdout 是管道，英文系统的默认编码是 cp1252，编不出中文；
+          # 程序里已经会把非控制台输出切成 utf-8，这里再兜一层。
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: 'utf-8'
         run: |
           ls -lh dist
+          python -c "import sys, locale; print('stdout encoding:', sys.stdout.encoding, '| locale:', locale.getpreferredencoding(False))"
           ./dist/UESTC-AutoLogin.exe --version
           ./dist/UESTC-AutoLogin.exe --help
+          # 非管理员看不到 SYSTEM 计划任务，返回非 0 属于预期，只打印不当失败
+          ./dist/UESTC-AutoLogin.exe --task-status || echo "task-status 返回 $?（非管理员属预期）"
 
       - name: 上传试跑用的 exe
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
