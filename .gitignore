@@ -136,3 +136,9 @@ dmypy.json
 
 .vscode/
 logs/
+
+# 例外：项目自带的打包配置要提交（上面的 *.spec 是给 PyInstaller 自动生成的）
+!uestc-autologin.spec
+
+# 本机自用的免 Python exe（Release 由 GitHub Actions 构建，不提交进仓库）
+/UESTC-AutoLogin.exe

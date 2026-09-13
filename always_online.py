@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 import ctypes
 import os
+import subprocess
 import time
 import platform
 
@@ -20,11 +21,18 @@ except:
 
 def is_connect_internet(test_ip):
     if platform.system().lower().startswith('windows'):
-        cmd = u"ping {} -n 1".format(test_ip)
+        cmd = ['ping', str(test_ip), '-n', '1']
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     else:
-        cmd = u"ping {} -c 1".format(test_ip)
-    status = os.system(cmd)
-    return status == 0
+        cmd = ['ping', str(test_ip), '-c', '1']
+        flags = 0
+    try:
+        # 用 subprocess 而不是 os.system：打包后 os.system 每次都会闪一下黑框
+        proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=flags)
+    except OSError:
+        return False
+    return proc.returncode == 0
 
 def always_login(user=None, test_ip=None, delay=2, max_failed=3, **kwargs):
     time_now = lambda: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())

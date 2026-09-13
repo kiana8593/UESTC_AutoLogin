@@ -5,6 +5,8 @@ import time
 import logging
 from pathlib import Path
 
+from paths import APP_DIR
+
 # from configparser import ConfigParser
 
 
@@ -33,7 +35,7 @@ def create_logger(loggername: str = 'logger', levelname: str = 'DEBUG', console_
     handler_console.setFormatter(console_format)
     handler_console.setLevel(levels[console_levelname])
 
-    path = Path(__file__).parent/'logs'  # 日志目录
+    path = APP_DIR / 'logs'  # 日志目录（打包后 = exe 同目录下的 logs/）
     # path = Path(cfg.get('prefers', 'logging_path'))
     path.mkdir(parents=True, exist_ok=True)
     today = time.strftime("%Y-%m-%d")  # 日志文件名

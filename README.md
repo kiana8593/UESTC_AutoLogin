@@ -4,6 +4,28 @@
 
 ------------------------------
 
+## 下载即用（不用装 Python）
+
+不想折腾 Python / conda 的话，直接用 Release 里的 `UESTC-AutoLogin.exe`
+（Windows 10/11 x64，内置 Python 解释器和 `requests`，没有安装过程）：
+
+1. 从 [Releases](../../releases) 下载 `UESTC-AutoLogin.exe`，放到一个以后不会再挪动的
+   固定目录，例如 `D:\APPs\UESTC-AutoLogin\`（配置和日志都写在 exe 旁边，绿色便携）；
+2. 双击运行。第一次会自动在 exe 旁边生成 `config.toml`，并用记事本打开，
+   填上学号、密码、运营商（`@dx` / `@cmcc` / `@dx-uestc`），保存；
+3. 回到菜单选 `1) 登录一次`，看到 `The loggin result is: ok` 就说明配置没问题；
+4. 想开机就自动连上：选 `3) 安装开机自启` —— 开机 30 秒后以 `SYSTEM` 身份运行，
+   **不用登录 Windows**，装的时候会弹一次管理员授权（不保存你的 Windows 密码）。
+
+首次运行 Windows 可能提示「未知发布者」/ SmartScreen 拦截，点「更多信息」→「仍要运行」
+即可，原因是 exe 没有买代码签名证书，不是病毒。面向普通用户的中文说明见
+[`使用说明.txt`](使用说明.txt)（会随 Release 一起下载）。
+
+> 只想改代码 / 不想用 exe：下面「快速开始」到「双击运行 / 开机自启」几节讲的是源码方式，
+> 两种方式可以共存，配置文件格式完全一样。
+
+------------------------------
+
 ## 搞这干啥？
 
 - 学校的电信宽带自动掉线太频繁了，移动的稍好一点但也不行（尊贵的移动还屏蔽了游戏串流软件，真是谢谢你）
@@ -191,18 +213,68 @@ set "PYTHON=D:\APPs\anaconda3\python.exe"
 
 ```text
 AutoLoginUESTC/
+├── UESTC-AutoLogin.exe   # Release 里下载的免 Python 单文件程序（由 app.py 打包）
+├── 使用说明.txt           # 面向普通用户的中文说明（随 Release 发布）
+├── app.py                # 统一入口：控制台菜单 + 命令行开关，exe 打包的就是它
+├── paths.py              # 程序目录 / 打包后资源目录的解析（源码和 exe 都能用）
 ├── config.example.toml   # 配置模板（提交到仓库）
 ├── config.toml           # 你的个人配置（已 gitignore，不提交）
 ├── config.py             # 读取 config.toml 的加载器
 ├── login_once.py         # 登录一次，用来验证配置
 ├── always_online.py      # 常驻，掉线自动重连
-├── autoConnectNetwork.bat # 双击：登录一次
+├── autoConnectNetwork.bat # 双击：登录一次（源码方式）
 ├── always_online.bat     # 双击 / 开机自启：常驻重连（纯 ASCII）
-├── setup_boot_task.ps1   # 开机就跑、不用登录（SYSTEM 计划任务）
-├── setup_startup.ps1     # 登录后自启（启动文件夹快捷方式）
+├── setup_boot_task.ps1   # 开机就跑、不用登录（SYSTEM 计划任务，源码方式）
+├── setup_startup.ps1     # 登录后自启（启动文件夹快捷方式，源码方式）
+├── uestc-autologin.spec  # PyInstaller 打包配置
+├── tools/make_icon.py    # 生成 assets/icon.ico
+├── tools/make_version_info.py # 生成 exe 的 Windows 版本资源
+├── assets/               # 图标（icon.png / icon.ico）
+├── .github/workflows/release.yml # 打 tag 自动构建并发 Release
 ├── logger.py             # 日志，写在 logs/ 下
 └── BitSrunLogin/         # 深澜(srun)认证协议实现
 ```
+
+------------------------------
+
+## 打包与发版
+
+### 本地打包（生成单文件 exe）
+
+不想动 conda base 的话，先起一个虚拟环境（Python 3.13 需要 `pyinstaller>=6.11`）：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install requests "pyinstaller>=6.11"
+.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean uestc-autologin.spec
+```
+
+产物是 `dist\UESTC-AutoLogin.exe`：单文件，内置 Python 解释器和 `requests`，
+别人下载后双击就能用。`uestc-autologin.spec` 会把 `config.example.toml` 作为内置模板
+打进去（exe 首次运行靠它生成 `config.toml`），图标用 `assets/icon.ico`，
+并排除 `tkinter` 减小体积；`tools/make_version_info.py` 负责生成 exe 右键属性里的
+版本信息。
+
+### 云端自动发版（GitHub Actions）
+
+`.github/workflows/release.yml` 在云端 Windows 上构建，两种触发方式：
+
+| 触发 | 结果 |
+| --- | --- |
+| 手动 `Run workflow` | 只在 Artifacts 里产出 exe / 说明文件，用来试跑，**不发 Release** |
+| 推送 `v*` tag | 先校验 tag 与 `app.py` 里的 `__version__` 一致，再打包并创建 Release，附件为 `UESTC-AutoLogin.exe` 和 `使用说明.txt` |
+
+```bash
+# 1. 先把 app.py 里的 __version__ 改成要发的版本号（比如 1.0.1）
+# 2. 打 tag 并推送
+git tag v1.0.1
+git push personal v1.0.1
+```
+
+发版前提：仓库的 Actions 是开着的（默认开着）。PyInstaller 不能交叉编译，
+所以只在 `windows-latest` 上构建，产物是 Windows 10/11 x64。
+exe 不做代码签名（证书要钱），所以别人第一次运行会看到 SmartScreen
+「未知发布者」提示，`使用说明.txt` 里说明了怎么继续运行。
 
 ------------------------------
 

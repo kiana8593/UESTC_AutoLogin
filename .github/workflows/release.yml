@@ -1,0 +1,75 @@
+# 打 tag 自动发 Release：云端 Windows 构建免 Python 的单文件 exe。
+#
+# 手动试跑（不会发 Release，只在 Artifacts 里给个 exe 下载）：
+#   GitHub 仓库 -> Actions -> Build & Release -> Run workflow
+# 正式发版：
+#   git tag v1.0.0 && git push personal v1.0.0
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests "pyinstaller>=6.11"
+
+      - name: 校验 tag 与 app.__version__ 一致
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(python -c "import app; print(app.__version__)")"
+          echo "tag = v$tag , app.__version__ = $ver"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::tag v$tag 与 app.py 里的 __version__ ($ver) 不一致：请先把 app.py 改成 $tag 再重新打 tag"
+            exit 1
+          fi
+
+      - name: 打包
+        run: pyinstaller --noconfirm --clean uestc-autologin.spec
+
+      - name: 冒烟测试（--version / --help 能跑起来）
+        shell: bash
+        run: |
+          ls -lh dist
+          ./dist/UESTC-AutoLogin.exe --version
+          ./dist/UESTC-AutoLogin.exe --help
+
+      - name: 上传试跑用的 exe
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: UESTC-AutoLogin-exe
+          path: |
+            dist/UESTC-AutoLogin.exe
+            使用说明.txt
+          if-no-files-found: error
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/UESTC-AutoLogin.exe" \
+            "使用说明.txt" \
+            --title "UESTC 校园网自动登录 $GITHUB_REF_NAME（免 Python 单文件版）" \
+            --notes-file "使用说明.txt"
