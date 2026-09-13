@@ -70,14 +70,8 @@ jobs:
             使用说明.txt
           if-no-files-found: error
 
-      - name: 发布 Release
+      - name: 发布 Release（Python 调 API，避免中文附件名被 shell 转坏）
         if: startsWith(github.ref, 'refs/tags/')
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "dist/UESTC-AutoLogin.exe" \
-            "使用说明.txt" \
-            --title "UESTC 校园网自动登录 $GITHUB_REF_NAME（免 Python 单文件版）" \
-            --notes-file "使用说明.txt"
+        run: python tools/create_release.py
