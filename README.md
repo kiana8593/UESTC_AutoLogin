@@ -109,7 +109,35 @@ python always_online.py
 
 想手动挂机就双击 `always_online.bat`。
 
-### 开机自启
+### 开机自启（两种方式，二选一）
+
+| 方式 | 什么时候启动 | 需要什么 |
+| --- | --- | --- |
+| `setup_boot_task.ps1` | **开机就跑，不用登录** | 注册时点一次 UAC 管理员授权，不保存任何密码 |
+| `setup_startup.ps1` | 登录 Windows 之后 | 无 |
+
+**方式一：开机就跑，不用登录（推荐）**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1
+```
+
+它会注册一个叫 `UESTC AutoLogin` 的计划任务：以 `SYSTEM` 身份在开机 30 秒后运行
+`always_online.bat`，掉线自动重连。校园网认证是按机器 IP 做的，不依赖桌面会话，
+所以**不用保持登录**，也**不用把 Windows 密码存进任务计划程序**。校园网账号密码仍然
+只写在 `config.toml` 里（已被 gitignore，不会进仓库）。
+
+看状态 / 删除：
+
+```powershell
+# 看状态（最近一次运行时间、结果码、下次运行时间）
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1 -Status
+
+# 删除这个计划任务
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_boot_task.ps1 -Remove
+```
+
+**方式二：登录后自启**
 
 跑一次 `setup_startup.ps1`，它会在启动文件夹里建一个快捷方式，指向
 `always_online.bat`，以后每次登录 Windows 都会自动把守候进程拉起来（最小化启动）：
@@ -127,8 +155,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_startup.ps1 -Remove
 动手改也可以：Win+R 输入 `shell:startup` 打开启动文件夹，把 `always_online.bat`
 的快捷方式丢进去，然后把快捷方式的「起始位置」设成仓库目录即可。
 
-> 这种方式是**登录后**自启。如果需要「开机就跑、不用登录」，得用「计划任务」
-> 并勾选「不管用户是否登录都要运行」，那一步需要管理员和账户密码。
+> **二选一**：两个都装的话，每次登录会多起一个守候进程（`setup_boot_task.ps1`
+> 检测到启动文件夹里的快捷方式时会提醒你，任务本身也限制了重复实例）。
 
 ### python 路径
 
@@ -162,7 +190,8 @@ AutoLoginUESTC/
 ├── always_online.py      # 常驻，掉线自动重连
 ├── autoConnectNetwork.bat # 双击：登录一次
 ├── always_online.bat     # 双击 / 开机自启：常驻重连（纯 ASCII）
-├── setup_startup.ps1     # 注册或取消开机自启
+├── setup_boot_task.ps1   # 开机就跑、不用登录（SYSTEM 计划任务）
+├── setup_startup.ps1     # 登录后自启（启动文件夹快捷方式）
 ├── logger.py             # 日志，写在 logs/ 下
 └── BitSrunLogin/         # 深澜(srun)认证协议实现
 ```
