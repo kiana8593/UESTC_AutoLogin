@@ -19,7 +19,8 @@
 
 首次运行 Windows 可能提示「未知发布者」/ SmartScreen 拦截，点「更多信息」→「仍要运行」
 即可，原因是 exe 没有买代码签名证书，不是病毒。面向普通用户的中文说明见
-[`使用说明.txt`](使用说明.txt)（会随 Release 一起下载）。
+[`使用说明.txt`](使用说明.txt)（Release 里叫 `UESTC-AutoLogin-guide.txt`，
+原因见下面「打包与发版」）。
 
 > 只想改代码 / 不想用 exe：下面「快速开始」到「双击运行 / 开机自启」几节讲的是源码方式，
 > 两种方式可以共存，配置文件格式完全一样。
@@ -262,7 +263,12 @@ python -m venv .venv
 | 触发 | 结果 |
 | --- | --- |
 | 手动 `Run workflow` | 只在 Artifacts 里产出 exe / 说明文件，用来试跑，**不发 Release** |
-| 推送 `v*` tag | 先校验 tag 与 `app.py` 里的 `__version__` 一致，再打包并创建 Release，附件为 `UESTC-AutoLogin.exe` 和 `使用说明.txt` |
+| 推送 `v*` tag | 先校验 tag 与 `app.py` 里的 `__version__` 一致，再打包并创建 Release，附件为 `UESTC-AutoLogin.exe` 和 `UESTC-AutoLogin-guide.txt`（就是仓库里的 `使用说明.txt`） |
+
+> 为什么说明文档在 Release 里叫 `UESTC-AutoLogin-guide.txt`：GitHub 不认中文附件名，
+> 实测无论是 `gh release create` 还是 REST API，传 `使用说明.txt` 上去都会变成
+> `default.txt`，所以附件用 ASCII 名 + 中文 label（`tools/create_release.py` 负责上传）。
+> 仓库里那份文件名保持不变。
 
 ```bash
 # 1. 先把 app.py 里的 __version__ 改成要发的版本号（比如 1.0.1）

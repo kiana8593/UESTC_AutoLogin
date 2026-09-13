@@ -3,11 +3,13 @@
 """
 发布 GitHub Release（CI 里用，也可以本地带 token 手工跑一次）。
 
-为什么不用 `gh release create`：在 Windows runner 上，中文文件名要经过
-bash -> gh.exe 两层参数转换，实测上传出来的附件名会被改成 `default.txt`
-（内容是对的，名字错了）。这里直接用 Python 调 REST API，附件名放在 URL 的
-查询参数里做百分号编码，跟 shell 的编码彻底无关，而且可重跑（会覆盖旧附件、
-清掉多余的附件）。
+两个坑：
+
+1. 中文附件名：不管是 `gh release create` 还是 REST API，GitHub 都不会把
+   `使用说明.txt` 原样存下来（实测存成 `default.txt`）。所以 Release 里的附件用
+   ASCII 名，中文说明放在附件 label 上；仓库里那份仍然叫 `使用说明.txt`。
+2. 直接用 Python 调 REST API 而不是 gh CLI：附件名 / 内容都由这里控制，
+   不经过 shell 的参数编码，而且可重跑（覆盖旧附件、清掉多余附件）。
 
 跑之前准备好环境变量：
 
@@ -33,9 +35,12 @@ API = 'https://api.github.com'
 UPLOADS = 'https://uploads.github.com'
 TIMEOUT = 300
 
+# (本地文件, Release 附件名（ASCII）, 中文说明（GitHub 上显示为附件 label）)
 ASSETS = [
-    (ROOT / 'dist' / 'UESTC-AutoLogin.exe', 'UESTC-AutoLogin.exe'),
-    (ROOT / '使用说明.txt', '使用说明.txt'),
+    (ROOT / 'dist' / 'UESTC-AutoLogin.exe', 'UESTC-AutoLogin.exe',
+     '免 Python 单文件程序（Windows 10/11 x64）'),
+    (ROOT / '使用说明.txt', 'UESTC-AutoLogin-guide.txt',
+     '使用说明（中文，双击用记事本打开）'),
 ]
 
 
@@ -66,7 +71,7 @@ def main():
         print('缺少环境变量：' + ', '.join(missing))
         return 1
 
-    for path, name in ASSETS:
+    for path, name, _label in ASSETS:
         if not path.exists():
             print(f'找不到要上传的文件：{path}')
             return 1
@@ -95,7 +100,7 @@ def main():
         print(f'查询 Release 失败：HTTP {status} {rel.get("error")}')
         return 1
 
-    wanted = {name for _, name in ASSETS}
+    wanted = {name for _, name, _label in ASSETS}
     for asset in rel.get('assets', []):
         if asset['name'] in wanted:
             print(f'删除旧附件 {asset["name"]}（准备重传）')
@@ -106,15 +111,17 @@ def main():
         if code not in (200, 204):
             print(f'  删除失败：HTTP {code} {out.get("error")}')
 
-    for path, name in ASSETS:
+    for path, name, label in ASSETS:
         data = path.read_bytes()
         url = (f'{UPLOADS}/repos/{repo}/releases/{rel["id"]}/assets'
-               f'?name={urllib.parse.quote(name)}')
+               f'?name={urllib.parse.quote(name)}&label={urllib.parse.quote(label)}')
         code, out = request('POST', url, token, data, 'application/octet-stream')
         if code not in (200, 201):
             print(f'上传 {name} 失败：HTTP {code} {out.get("error")}')
             return 1
-        print(f'已上传 {name}（{len(data)} 字节） -> {out.get("browser_download_url")}')
+        got = out.get('name')
+        extra = '' if got == name else f'（注意：GitHub 存成了 {got}）'
+        print(f'已上传 {name}（{len(data)} 字节）{extra} -> {out.get("browser_download_url")}')
 
     print(f'完成：{rel.get("html_url")}')
     return 0
