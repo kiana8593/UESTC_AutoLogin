@@ -102,23 +102,52 @@ python always_online.py
 
 ## 双击运行 / 开机自启
 
-仓库里的 `autoConnectNetwork.bat` 是个通用启动器，双击就能跑 `login_once.py`。
-想让它常驻重连，把里面的 `login_once.py` 改成 `always_online.py`。
+两个 bat，各管一件事：
 
-如果你的 python 不在 PATH 里（双击后提示 `python 不是内部或外部命令`），
-打开这个 bat，把这一行前面的 `rem ` 删掉、改成你自己的 python 路径：
+- `autoConnectNetwork.bat`：登录一次就退出，用来验证配置能不能登录成功。
+- `always_online.bat`：常驻，掉线自动重连。**关掉窗口 = 停止重连**。
+
+想手动挂机就双击 `always_online.bat`。
+
+### 开机自启
+
+跑一次 `setup_startup.ps1`，它会在启动文件夹里建一个快捷方式，指向
+`always_online.bat`，以后每次登录 Windows 都会自动把守候进程拉起来（最小化启动）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_startup.ps1
+```
+
+不想要了就加 `-Remove`（只删快捷方式，不动任何别的东西）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup_startup.ps1 -Remove
+```
+
+动手改也可以：Win+R 输入 `shell:startup` 打开启动文件夹，把 `always_online.bat`
+的快捷方式丢进去，然后把快捷方式的「起始位置」设成仓库目录即可。
+
+> 这种方式是**登录后**自启。如果需要「开机就跑、不用登录」，得用「计划任务」
+> 并勾选「不管用户是否登录都要运行」，那一步需要管理员和账户密码。
+
+### python 路径
+
+如果你换了 conda 环境或 python 安装位置（双击后提示 `python 不是内部或外部命令`，
+或者窗口一闪而过），打开对应的 bat，把 `set "PYTHON=..."` 改成你的真实路径即可：
 
 ```bat
-set "PYTHON=D:\APP-D\anaconda3\python.exe"
+set "PYTHON=D:\APPs\anaconda3\python.exe"
 ```
+
+> **bat 别写中文**：cmd 用系统码页（这里 936/GBK）解析 bat 文件，中文注释的字节
+> 一旦被错误解码，会把 `rem` 注释行当成命令执行、顺带把后面的 `set "PYTHON=..."`
+> 一起弄坏。新加的 `always_online.bat` 就是纯 ASCII，改的时候也请保持。
 
 > **conda 用户注意**：conda 只把 `安装目录\Scripts` 加进了 PATH，而 `python.exe`
 > 在安装目录**根目录**下，所以双击 bat 时 `python` 常常会落到
 > `C:\Users\<你>\AppData\Local\Microsoft\WindowsApps\python.exe` —— 那是微软商店的
 > 占位程序，执行会直接返回 9009。这种情况就必须把绝对路径显式写进 bat，
 > 或者在「计划任务」里用 conda 的 python 全路径来跑。
-
-开机自启：把 bat 的快捷方式丢进 `shell:startup`（Win+R 输入即可打开启动文件夹）。
 
 ------------------------------
 
@@ -131,7 +160,9 @@ AutoLoginUESTC/
 ├── config.py             # 读取 config.toml 的加载器
 ├── login_once.py         # 登录一次，用来验证配置
 ├── always_online.py      # 常驻，掉线自动重连
-├── autoConnectNetwork.bat# Windows 双击启动器
+├── autoConnectNetwork.bat # 双击：登录一次
+├── always_online.bat     # 双击 / 开机自启：常驻重连（纯 ASCII）
+├── setup_startup.ps1     # 注册或取消开机自启
 ├── logger.py             # 日志，写在 logs/ 下
 └── BitSrunLogin/         # 深澜(srun)认证协议实现
 ```

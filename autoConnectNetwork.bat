@@ -7,11 +7,16 @@ rem  换成 always_online.py 即可。
 rem ============================================================
 cd /d "%~dp0"
 
-rem 如果双击时报 "python 不是内部或外部命令"，说明 python 不在 PATH 里，
-rem 把下面这行的 rem 去掉，改成你自己 python.exe 的绝对路径：
-rem set "PYTHON=D:\APP-D\anaconda3\python.exe"
-if not defined PYTHON if defined CONDA_PREFIX set "PYTHON=%CONDA_PREFIX%\python.exe"
-if not defined PYTHON set "PYTHON=python"
+rem python 不在 PATH 里时要把绝对路径写全，见 always_online.bat 里的说明
+if not defined PYTHON set "PYTHON=D:\APPs\anaconda3\python.exe"
+if not exist "%PYTHON%" (
+    echo.
+    echo [ERROR] python.exe not found at: %PYTHON%
+    echo Open this file and fix the PYTHON path above.
+    echo.
+    pause
+    exit /b 1
+)
 
 "%PYTHON%" "%~dp0login_once.py"
 
